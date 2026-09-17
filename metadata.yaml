@@ -1,4 +1,4 @@
 name: astrbot_plugin_smart_recall
 desc: SmartRecall - 仅管理员可通过引用消息撤回指定消息
-version: v1.0.0
+version: v1.0.1
 author: Zxin-Pro

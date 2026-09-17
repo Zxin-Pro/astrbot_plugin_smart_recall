@@ -12,7 +12,7 @@ from astrbot.api.message_components import At, Plain, Reply
 from astrbot.api import logger
 
 
-@register("SmartRecall", "Zxin-Pro", "仅管理员可通过引用消息撤回", "1.0.0")
+@register("SmartRecall", "Zxin-Pro", "仅管理员可通过引用消息撤回", "1.0.1")
 class SmartRecall(Star):
     def __init__(self, context: Context):
         super().__init__(context)
@@ -60,18 +60,26 @@ class SmartRecall(Star):
         if bot is None:
             raise RuntimeError("当前平台适配器不支持撤回操作")
 
-        # 方式一：unsend
-        if hasattr(bot, "unsend"):
-            await bot.unsend(message_id)
-            return
-
-        # 方式二：回退 delete_msg（OneBot v11）
-        if hasattr(bot, "delete_msg"):
+        bot_cls = type(bot).__name__
+        # aiocqhttp（CQHttp）：必须走 OneBot v11 的 delete_msg，
+        # 且 CQHttp.__getattr__ 对任意 API 名都动态返回调用器（hasattr 恒为 True），
+        # 所以不能用 hasattr(bot, "unsend") 判断，必须按适配器类型区分
+        if bot_cls == "CQHttp" or hasattr(bot, "call_action"):
             try:
                 await bot.delete_msg(message_id=int(message_id))
             except (ValueError, TypeError):
-                # 某些平台消息 ID 非纯数字，按原样传
+                # 消息 ID 非纯数字时按原样传
                 await bot.delete_msg(message_id=message_id)
+            return
+
+        # 其他平台（telegram/lark/discord 等）优先 unsend，全部关键字传参
+        if hasattr(bot, "unsend"):
+            await bot.unsend(message_id=message_id)
+            return
+
+        # 兜底：尝试 delete_msg
+        if hasattr(bot, "delete_msg"):
+            await bot.delete_msg(message_id=message_id)
             return
 
         raise RuntimeError("当前平台适配器不支持撤回操作")
