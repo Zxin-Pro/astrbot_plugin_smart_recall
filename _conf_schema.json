@@ -1,0 +1,10 @@
+{
+  "admins": {
+    "description": "可使用撤回指令的管理员QQ号列表（留空则使用 AstrBot 全局管理员配置）",
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": []
+  }
+}

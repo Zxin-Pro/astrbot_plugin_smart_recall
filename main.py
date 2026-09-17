@@ -9,13 +9,14 @@ SmartRecall - 仅管理员可通过引用消息撤回指定消息
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api.message_components import At, Plain, Reply
-from astrbot.api import logger
+from astrbot.api import logger, AstrBotConfig
 
 
-@register("SmartRecall", "Zxin-Pro", "仅管理员可通过引用消息撤回", "1.0.1")
+@register("SmartRecall", "Zxin-Pro", "仅管理员可通过引用消息撤回", "1.1.0")
 class SmartRecall(Star):
-    def __init__(self, context: Context):
+    def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
+        self.config = config
         # 撤回指令关键词
         self.keywords = ("撤回", "撤回这条", "撤回消息")
 
@@ -32,7 +33,16 @@ class SmartRecall(Star):
         return False
 
     def _is_admin(self, event: AstrMessageEvent) -> bool:
-        """判断发送者是否为管理员（AstrBot 中管理员角色为 'admin'）"""
+        """
+        判断发送者是否为管理员：
+        1. 插件配置的管理员QQ号列表（优先）
+        2. 兜底使用 AstrBot 全局管理员（event.role == 'admin'）
+        """
+        sender_id = str(event.get_sender_id() or "")
+        plugin_admins = self.config.get("admins") or []
+        for aid in plugin_admins:
+            if str(aid) == sender_id and sender_id:
+                return True
         return getattr(event, "role", None) == "admin"
 
     def _get_replied_message_id(self, event: AstrMessageEvent):
@@ -101,10 +111,8 @@ class SmartRecall(Star):
             if not self._is_bot_mentioned(event):
                 return
 
-            # 2. 非管理员，拒绝执行
+            # 2. 非管理员，静默忽略，不响应
             if not self._is_admin(event):
-                yield event.plain_result("权限不足，仅管理员可执行此操作")
-                event.stop_event()
                 return
 
             # 3. 文本必须包含撤回关键词，否则不响应
